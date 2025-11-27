@@ -2,341 +2,1696 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>ZAMA • FHEVM — Partner Tariff Gate</title>
+  <title>Encrypted Slot Machine • Zama FHEVM</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
+
+  <!-- Required for Relayer SDK (WASM/Workers) -->
   <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
   <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+
   <style>
-    :root{ --bg:#0b0f1a; --bg2:#090e18; --ink:#eaf1ff; --muted:#b6c4e3; --card:#0f1728; --br:#1a2540; --glow:rgba(56,189,248,.18); --accent:#2f66ff; --accent-2:#2553e6; --ok:#7ef29a; --bad:#ff8b8b; }
-    *{box-sizing:border-box} html,body{height:100%}
-    body{ margin:0; color:var(--ink);
-      background: radial-gradient(60% 40% at 50% -10%, #0f1a33 0%, transparent 70%), linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%);
-      font:15px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial;}
-    .wrap{max-width:1180px; margin:30px auto; padding:0 18px; display:grid; gap:18px; grid-template-columns: 1.1fr .9fr}
-    .spacer{flex:1} .pill{padding:6px 10px; border:1px solid var(--br); border-radius:10px; background:linear-gradient(to bottom, rgba(255,255,255,.03), transparent 30%), linear-gradient(150deg, #182033, #060a16); color:#cfe0ff; font-weight:800; white-space:nowrap}
-    .title{font-size:22px; font-weight:900}
-    .card{border:1px solid var(--br); border-radius:16px; background:radial-gradient(circle at top center, var(--glow) 0, rgba(15,23,42,.96) 36%, #020617 70%); box-shadow:0 1px 0 rgba(15,23,42,.9), 0 28px 60px rgba(0,0,0,.8), 0 0 36px var(--glow);}    
-    .card .hd{padding:14px 16px; border-bottom:1px solid var(--br); display:flex; align-items:center; gap:10px}
-    .card .bd{padding:14px 16px;}
-    .grid{display:grid; gap:12px} .grid.cols-2{grid-template-columns:1fr 1fr}
-    label{font-size:12px; color:#9db1e8; text-transform:uppercase; letter-spacing:.06em; font-weight:800; display:block; margin-bottom:6px}
-    input{width:100%; padding:12px; border-radius:12px; border:1px solid var(--br); background:#0b1220; color:var(--ink); font-weight:800; outline:none}
-    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:42px; padding:10px 14px; border-radius:12px; border:1px solid rgba(31,41,55,.9); color:var(--ink); font-weight:900; cursor:pointer; background:linear-gradient(to bottom, rgba(255,255,255,.06), transparent 32%), linear-gradient(145deg, #1f2933, #020617); box-shadow:0 0 0 1px rgba(15,23,42,.9), 0 14px 30px rgba(0,0,0,.7), 0 0 26px var(--glow);}    
-    .btn:hover{transform:translateY(-1px); box-shadow:0 0 0 1px rgba(15,23,42,1), 0 18px 40px rgba(0,0,0,.85), 0 0 30px rgba(56,189,248,.35)}
-    .btn[disabled]{opacity:.55; cursor:not-allowed} .btn.primary{background:linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); box-shadow:0 14px 40px rgba(47,102,255,.28), inset 0 0 0 1px rgba(255,255,255,.05)}
-    .kv{display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:center}
-    .mono{font-family:ui-monospace, Menlo, Consolas, 'Courier New', monospace} .muted{color:var(--muted)} .ok{color:var(--ok)} .bad{color:var(--bad)}
-    .sep{height:1px; background:var(--br); margin:8px 0} .footer{grid-column:1/-1; text-align:center; color:#9db1e8; opacity:.85; padding:8px}
-    .row-actions{display:flex; gap:10px; flex-wrap:wrap}
-    .result-box{padding:10px 12px; border:1px solid var(--br); border-radius:12px; background:linear-gradient(to bottom, rgba(255,255,255,.03), transparent 32%), linear-gradient(145deg, #132035, #020617);}    
-    .tag{display:inline-block; padding:2px 8px; border-radius:10px; border:1px solid var(--br); background:#0b1424; color:#cfe0ff; font-size:12px; font-weight:800}
-    .row-split{display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center} .small{font-size:12px}
+    :root {
+      --bg: radial-gradient(circle at top, #18181b 0, #020617 40%, #000000 100%);
+      --panel: rgba(15, 23, 42, 0.92);
+      --panel-soft: rgba(15, 23, 42, 0.7);
+      --accent: #4ade80;
+      --accent-strong: #22c55e;
+      --accent-soft: rgba(74, 222, 128, 0.1);
+      --accent2: #38bdf8;
+      --accent2-soft: rgba(56, 189, 248, 0.1);
+      --danger: #f97373;
+      --danger-soft: rgba(248, 113, 113, 0.12);
+      --border: rgba(148, 163, 184, 0.4);
+      --border-strong: rgba(148, 163, 184, 0.7);
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --text-muted: #6b7280;
+      --yellow: #facc15;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-strong: 0 22px 55px rgba(0, 0, 0, 0.7);
+      --shadow-soft: 0 10px 28px rgba(15, 23, 42, 0.9);
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      max-width: 1160px;
+      margin: 0 auto;
+      gap: 16px;
+    }
+
+    /* HEADER */
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-title {
+      font-size: 22px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #f9fafb;
+    }
+
+    .brand-title span.highlight {
+      color: var(--accent);
+      text-shadow: 0 0 16px rgba(74, 222, 128, 0.7);
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .pill-label {
+      color: var(--text-muted);
+    }
+
+    .pill-value {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .pill-value.muted {
+      color: var(--text-soft);
+    }
+
+    .btn-main {
+      border-radius: 999px;
+      border: 0;
+      padding: 7px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      cursor: pointer;
+      background: radial-gradient(circle at top left, #4ade80, #22c55e 50%, #166534 100%);
+      color: #ecfdf5;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 18px 40px rgba(34, 197, 94, 0.65);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    }
+
+    .btn-main:hover:not([disabled]) {
+      transform: translateY(-1px);
+      box-shadow: 0 22px 50px rgba(34, 197, 94, 0.85);
+      filter: brightness(1.06);
+    }
+
+    .btn-main[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+      box-shadow: none;
+      filter: grayscale(0.2);
+    }
+
+    .btn-main .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #bbf7d0;
+      box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.35);
+    }
+
+    /* LAYOUT */
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 960px) {
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    /* SLOT MACHINE PANEL */
+
+    .slot-panel {
+      background: radial-gradient(circle at top, rgba(30, 64, 175, 0.4), rgba(15, 23, 42, 0.96));
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      box-shadow: var(--shadow-strong);
+      padding: 16px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slot-panel::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at 10% 0, rgba(56, 189, 248, 0.32), transparent 60%),
+        radial-gradient(circle at 90% 100%, rgba(74, 222, 128, 0.28), transparent 60%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .slot-panel-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: 100%;
+    }
+
+    .slot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .slot-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+
+    .slot-sub {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .slot-tag {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.9);
+      background: rgba(15, 23, 42, 0.85);
+      padding: 3px 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-soft);
+    }
+
+    .slot-tag span.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent2);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+    }
+
+    .slot-machine {
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.85));
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+      padding: 16px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slot-machine-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .machine-label {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .machine-name {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+
+    .lamp {
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      min-width: 150px;
+      justify-content: center;
+    }
+
+    .lamp-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(24, 24, 27, 0.9);
+    }
+
+    .lamp.win .lamp-dot {
+      background: var(--accent);
+      box-shadow: 0 0 16px rgba(74, 222, 128, 0.9);
+    }
+
+    .lamp.lose .lamp-dot {
+      background: #f97373;
+      box-shadow: 0 0 16px rgba(248, 113, 113, 0.9);
+    }
+
+    .lamp.idle .lamp-dot {
+      background: #facc15;
+      box-shadow: 0 0 14px rgba(250, 204, 21, 0.9);
+    }
+
+    .lamp-text-main {
+      font-weight: 600;
+    }
+
+    .lamp-text-sub {
+      color: var(--text-soft);
+      font-size: 10px;
+    }
+
+    .reels-shell {
+      border-radius: 16px;
+      background: radial-gradient(circle at top, #020617, #020617 30%, #0b1220 80%, #020617 100%);
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      padding: 10px 10px 12px;
+      box-shadow: inset 0 0 40px rgba(15, 23, 42, 0.9);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .reels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .reel {
+      border-radius: 12px;
+      background: linear-gradient(180deg, #020617, #111827);
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.9);
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media (max-width: 520px) {
+      .reel {
+        height: 68px;
+        font-size: 26px;
+      }
+    }
+
+    .reel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent, rgba(148, 163, 184, 0.25), transparent);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .reel-symbol {
+      position: relative;
+      z-index: 1;
+      transition: transform 0.18s ease-out;
+    }
+
+    .reel.spinning .reel-symbol {
+      animation: reel-spin 0.7s linear infinite;
+    }
+
+    @keyframes reel-spin {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-14px); }
+      100% { transform: translateY(0); }
+    }
+
+    .spin-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .spin-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      background: linear-gradient(135deg, #0b1120, #020617);
+      color: #e5e7eb;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .btn:hover:not([disabled]) {
+      background: #020617;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.9);
+      border-color: rgba(129, 140, 248, 0.7);
+    }
+
+    .btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at top, #4ade80, #22c55e 50%, #166534 100%);
+      border-color: #22c55e;
+      color: #ecfdf5;
+      box-shadow: 0 16px 36px rgba(34, 197, 94, 0.7);
+    }
+
+    .btn-primary:hover:not([disabled]) {
+      background: radial-gradient(circle at top, #86efac, #22c55e 60%, #15803d 100%);
+      box-shadow: 0 20px 46px rgba(34, 197, 94, 0.9);
+    }
+
+    .btn-small {
+      padding: 5px 12px;
+      font-size: 10px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .hint span.label {
+      color: var(--accent2);
+      font-weight: 500;
+    }
+
+    .hint.muted {
+      color: var(--text-muted);
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: var(--text-soft);
+      min-height: 1.4em;
+    }
+
+    /* RESULT PANEL */
+
+    .result-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr);
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--panel);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-soft);
+      padding: 12px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #e5e7eb;
+      font-weight: 600;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 3px 7px;
+      border: 1px solid var(--border-strong);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-soft);
+    }
+
+    .badge.ok {
+      border-color: rgba(74, 222, 128, 0.7);
+      color: var(--accent);
+    }
+
+    .badge.warn {
+      border-color: rgba(250, 204, 21, 0.7);
+      color: var(--yellow);
+    }
+
+    .badge.err {
+      border-color: rgba(248, 113, 113, 0.7);
+      color: var(--danger);
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    @media (max-width: 580px) {
+      .grid-two {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .info-box {
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--panel-soft);
+      padding: 8px 9px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+    }
+
+    .info-value {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #e5e7eb;
+      word-break: break-all;
+    }
+
+    .info-value.muted {
+      color: var(--text-soft);
+    }
+
+    .tier-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tier-chip {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      background: #020617;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-soft);
+    }
+
+    .tier-chip strong {
+      color: #f9fafb;
+    }
+
+    .tier-chip span.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--text-muted);
+    }
+
+    .tier-chip.t1 span.dot {
+      background: #22c55e;
+    }
+
+    .tier-chip.t2 span.dot {
+      background: #38bdf8;
+    }
+
+    .tier-chip.t3 span.dot {
+      background: #facc15;
+    }
+
+    .https-note {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
+    .https-good {
+      color: var(--accent);
+    }
+
+    .https-bad {
+      color: var(--yellow);
+    }
+
+    .mono {
+      font-family: var(--mono);
+    }
+
+    /* ADMIN (PAYOUT CONFIG) */
+
+    .admin-note {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .field {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .field-label span.title {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #e5e7eb;
+      font-size: 10px;
+    }
+
+    .field-label small {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .input-shell {
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: rgba(15, 23, 42, 0.95);
+      padding: 5px 9px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-shell input {
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #e5e7eb;
+      font-size: 12px;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .input-shell input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .input-prefix,
+    .input-suffix {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .admin-status {
+      font-size: 11px;
+      color: var(--text-soft);
+      min-height: 1.4em;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="card">
-      <div class="hd">
-        <div class="title">Partner Tariff Gate</div>
-        <span class="pill">ZAMA · FHEVM</span>
-        <span class="spacer"></span>
-        <span class="pill" id="net-pill">Network: —</span>
-        <button class="btn" id="btn-connect">Connect</button>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-title">
+          <span class="highlight">Encrypted</span> Slot Machine
+        </div>
+        <div class="brand-sub">
+          FHE-powered spins — the seed, roll and prize tier stay encrypted on-chain. Only your lamp knows if you win.
+        </div>
       </div>
-      <div class="bd grid">
-        <div class="card">
-          <div class="hd"><b>Eligibility · Encrypted user input</b></div>
-          <div class="bd grid">
-            <div class="result-box" id="decisionBox">Decision: <span class="tag">n/a</span></div>
+      <div class="status-bar">
+        <div class="pill">
+          <span class="pill-label">Network</span>
+          <span id="netLabel" class="pill-value muted">—</span>
+        </div>
+        <div class="pill">
+          <span class="pill-label">You</span>
+          <span id="accountLabel" class="pill-value muted">not connected</span>
+        </div>
+        <div class="pill">
+          <span class="pill-label">Contract</span>
+          <span id="contractLabel" class="pill-value mono">—</span>
+        </div>
+        <button id="connectBtn" class="btn-main">
+          <span class="dot"></span>
+          <span id="connectBtnLabel">Connect wallet</span>
+        </button>
+      </div>
+    </header>
 
-            <div class="grid cols-2">
-              <div><label>Plan ID</label><input id="planId" type="number" min="1" value="1" /></div>
-              <div></div>
-              <div><label>KYC level (u8)</label><input id="kyc" type="number" min="0" max="255" value="3" /></div>
-              <div><label>Tenure days (u16)</label><input id="tenure" type="number" min="0" max="65535" value="45" /></div>
-              <div><label>Trade volume (u32)</label><input id="volume" type="number" min="0" max="4294967295" value="1500" /></div>
-              <div style="display:flex;align-items:flex-end;justify-content:flex-end">
-                <button class="btn primary" id="btn-eval">Encrypt &amp; Evaluate</button>
-              </div>
-            </div>
-
+    <main class="main">
+      <!-- LEFT: SLOT MACHINE -->
+      <section class="slot-panel">
+        <div class="slot-panel-inner">
+          <div class="slot-header">
             <div>
-              <label>Handle</label>
-              <div class="row-split">
-                <input id="handleOut" class="mono small" readonly placeholder="—" />
-                <button class="btn" id="btn-copy">Copy</button>
+              <div class="slot-title">1. Spin the encrypted reels</div>
+              <div class="slot-sub">
+                A random seed is encrypted in your browser, evaluated under FHE on-chain, and only you can decrypt the result.
+              </div>
+            </div>
+            <div class="slot-tag">
+              <span class="dot"></span>
+              <span id="payoutMetaLabel">Payout curve: loading…</span>
+            </div>
+          </div>
+
+          <div class="slot-machine">
+            <div class="slot-machine-top">
+              <div>
+                <div class="machine-label">Machine</div>
+                <div class="machine-name">ZAMA · FHE SLOTS</div>
+              </div>
+              <div id="lamp" class="lamp idle">
+                <div class="lamp-dot"></div>
+                <div>
+                  <div id="lampMain" class="lamp-text-main">Waiting for your spin…</div>
+                  <div id="lampSub" class="lamp-text-sub">Encrypt seed → send tx → decrypt result</div>
+                </div>
               </div>
             </div>
 
-            <div class="row-actions">
-              <button class="btn" id="btn-make-public">Make my decision public</button>
-              <button class="btn" id="btn-public-decrypt">Decrypt (public)</button>
-              <button class="btn" id="btn-user-decrypt">Decrypt (signed)</button>
+            <div class="reels-shell">
+              <div class="reels">
+                <div class="reel" id="reel1">
+                  <div class="reel-symbol" id="reel1Symbol">🍒</div>
+                </div>
+                <div class="reel" id="reel2">
+                  <div class="reel-symbol" id="reel2Symbol">💎</div>
+                </div>
+                <div class="reel" id="reel3">
+                  <div class="reel-symbol" id="reel3Symbol">7️⃣</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="spin-row">
+              <div class="spin-controls">
+                <button id="spinBtn" class="btn btn-primary">
+                  <span>Spin with encrypted seed</span>
+                </button>
+                <button id="revealBtn" class="btn btn-small">
+                  Reveal last result (decrypt)
+                </button>
+              </div>
+              <div class="hint">
+                <span class="label">Note:</span> the contract only ever sees encrypted seed / roll / prize tier.
+              </div>
+            </div>
+
+            <div id="spinStatus" class="status-text"></div>
+          </div>
+
+          <!-- Result / handles -->
+          <div class="result-panel">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">2. Your encrypted outcome</div>
+                  <div class="card-sub">
+                    Handles are just ciphertext IDs. Use <span class="mono">userDecrypt</span> via the Relayer to see your prize tier and win flag locally.
+                  </div>
+                </div>
+                <span id="httpsBadge" class="badge warn">decrypt: HTTPS recommended</span>
+              </div>
+
+              <div class="grid-two">
+                <div class="info-box">
+                  <div class="info-label">Prize tier</div>
+                  <div id="tierText" class="info-value muted">—</div>
+                  <div class="tier-chip-row">
+                    <div class="tier-chip"><span class="dot"></span><strong>0</strong> · no win</div>
+                    <div class="tier-chip t1"><span class="dot"></span><strong>1</strong> · small win</div>
+                    <div class="tier-chip t2"><span class="dot"></span><strong>2</strong> · big win</div>
+                    <div class="tier-chip t3"><span class="dot"></span><strong>3</strong> · jackpot</div>
+                  </div>
+                </div>
+                <div class="info-box">
+                  <div class="info-label">Encrypted win flag</div>
+                  <div id="winText" class="info-value muted">—</div>
+                  <div class="https-note" id="httpsNote">
+                    Run decryption on a secure origin to let the Relayer workers operate correctly.
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid-two">
+                <div class="info-box">
+                  <div class="info-label">Last spin handles</div>
+                  <div id="seedHandleText" class="info-value muted">seed: —</div>
+                  <div id="rollHandleText" class="info-value muted">roll: —</div>
+                </div>
+                <div class="info-box">
+                  <div class="info-label">Prize / win handles</div>
+                  <div id="tierHandleText" class="info-value muted">tier: —</div>
+                  <div id="winHandleText" class="info-value muted">win flag: —</div>
+                </div>
+              </div>
+
+              <div class="status-text" id="decryptStatus"></div>
+            </div>
+
+            <!-- ADMIN: payout config -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">3. Admin · Payout curve</div>
+                  <div class="card-sub">
+                    Owner-only: edit the thresholds that map encrypted rolls to prize tiers.
+                  </div>
+                </div>
+                <span id="adminRoleBadge" class="badge">role: unknown</span>
+              </div>
+
+              <p class="admin-note">
+                Roll is expected in <span class="mono">[0, 10000)</span>. With thresholds
+                <span class="mono">jackpot &lt; big &lt; small</span>:
+                <br />
+                <span class="mono">roll &lt; jackpot → tier 3</span>,
+                <span class="mono">roll &lt; big → tier 2</span>,
+                <span class="mono">roll &lt; small → tier 1</span>,
+                else tier 0.
+              </p>
+
+              <div class="row">
+                <div class="field">
+                  <label class="field-label">
+                    <span class="title">Small win limit</span>
+                    <small>&lt;= 10000</small>
+                  </label>
+                  <div class="input-shell">
+                    <span class="input-prefix">roll &lt;</span>
+                    <input id="smallLimitInput" type="number" min="1" max="10000" placeholder="e.g. 1000" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">
+                    <span class="title">Big win limit</span>
+                    <small>&lt; small</small>
+                  </label>
+                  <div class="input-shell">
+                    <span class="input-prefix">roll &lt;</span>
+                    <input id="bigLimitInput" type="number" min="1" max="10000" placeholder="e.g. 250" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">
+                    <span class="title">Jackpot limit</span>
+                    <small>&lt; big</small>
+                  </label>
+                  <div class="input-shell">
+                    <span class="input-prefix">roll &lt;</span>
+                    <input id="jackpotLimitInput" type="number" min="1" max="10000" placeholder="e.g. 50" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="row" style="margin-top: 8px; justify-content: space-between; gap: 10px;">
+                <button id="refreshConfigBtn" class="btn btn-small">
+                  Refresh from contract
+                </button>
+                <button id="setConfigBtn" class="btn btn-small">
+                  Update payout config
+                </button>
+              </div>
+
+              <div id="adminStatus" class="admin-status"></div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="hd"><b>Admin · Set encrypted policy</b> <span class="pill" id="isOwnerPill" style="margin-left:8px">owner: —</span></div>
-          <div class="bd grid cols-2">
-            <div><label>Plan ID</label><input id="p-plan" type="number" min="1" value="1" /></div>
-            <div><label>minKycLevel (u8)</label><input id="p-kyc" type="number" min="0" max="255" value="2" /></div>
-            <div><label>minTenureDays (u16)</label><input id="p-tenure" type="number" min="0" max="65535" value="30" /></div>
-            <div><label>minTradeVolumeUsd (u32)</label><input id="p-volume" type="number" min="0" max="4294967295" value="1000" /></div>
-            <div><label>minPassRules (u8)</label><input id="p-pass" type="number" min="1" max="3" value="2" /></div>
-            <div style="display:flex;align-items:flex-end"><button class="btn" id="btn-set-policy">Set encrypted policy</button></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <aside class="card">
-      <div class="hd"><b>Contract</b></div>
-      <div class="bd grid">
-        <div class="kv"><div class="muted">Address:</div><div class="mono" id="caddr">—</div></div>
-        <div class="kv"><div class="muted">Owner:</div><div class="mono" id="cowner">—</div></div>
-        <div class="kv"><div class="muted">Relayer:</div><div id="relayerState">not ready</div></div>
-        <div class="sep"></div>
-        <div class="kv"><div class="muted">Your account:</div><div class="mono" id="acc">—</div></div>
-        <div class="kv"><div class="muted">Eligibility handle:</div><div class="mono" id="lastHandle">—</div></div>
-      </div>
-    </aside>
-
-    <div class="footer">ZAMA FHEVM · Partner Tariff Gate — Single-file demo (Sepolia)</div>
+      <!-- RIGHT COLUMN EMPTY FOR NOW (FOCUSED UI) -->
+      <!-- You can add leaderboard / explainer later if needed -->
+    </main>
   </div>
 
+  <!-- Ethers + Relayer SDK -->
   <script type="module">
-    // ===== Net & endpoints =====
-    const CONTRACT_ADDRESS = '0x7F658EDaddFC0dfb8a68021dD8855d1B34a36CC3';
-    const CHAIN_ID_HEX = '0xaa36a7';
+    import { BrowserProvider, Contract } from "https://cdn.jsdelivr.net/npm/ethers@6.15.0/+esm";
+    import {
+      initSDK,
+      createInstance,
+      SepoliaConfig,
+      generateKeypair
+    } from "https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.js";
 
-    // Try to use local reverse-proxy if available, else direct Zama endpoints
-    const ORIGIN = window.location.origin;
-    const HAS_LOCAL_PROXY = ORIGIN.includes('localhost:3443') || ORIGIN.includes('127.0.0.1:3443');
-    const RELAYER_URL = HAS_LOCAL_PROXY ? `${ORIGIN}/relayer` : 'https://relayer.testnet.zama.org';
-    const GATEWAY_URL = HAS_LOCAL_PROXY ? `${ORIGIN}/gateway` : 'https://gateway.testnet.zama.org';
-
-    const $ = (q)=>document.querySelector(q);
-    const btnConnect=$('#btn-connect'), netPill=$('#net-pill'), isOwnerPill=$('#isOwnerPill');
-    const caddrEl=$('#caddr'), cownerEl=$('#cowner'), accEl=$('#acc'), relayerStateEl=$('#relayerState');
-    const planIdEl=$('#planId'), kycEl=$('#kyc'), tenureEl=$('#tenure'), volumeEl=$('#volume'), btnEval=$('#btn-eval');
-    const decisionBox=$('#decisionBox'), handleOut=$('#handleOut'), btnCopy=$('#btn-copy');
-    const btnMakePublic=$('#btn-make-public'), btnPublicDecrypt=$('#btn-public-decrypt'), btnUserDecrypt=$('#btn-user-decrypt');
-    const pPlanEl=$('#p-plan'), pKycEl=$('#p-kyc'), pTenureEl=$('#p-tenure'), pVolEl=$('#p-volume'), pPassEl=$('#p-pass'), btnSetPolicy=$('#btn-set-policy');
-    const lastHandleEl=$('#lastHandle');
-
-    const [{ BrowserProvider, Contract }, relayerSdk] = await Promise.all([
-      import('https://cdn.jsdelivr.net/npm/ethers@6.15.0/+esm'),
-      import('https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.js')
-    ]);
-    const { initSDK, createInstance, SepoliaConfig, generateKeypair } = relayerSdk;
     await initSDK();
 
-    const IS_HTTPS = location.protocol === 'https:';
-    if(!IS_HTTPS){ relayerStateEl.innerHTML = '<span class="bad">not https (signed decrypt disabled)</span>'; btnUserDecrypt.disabled = true; }
+    /* ---------- CONFIG ---------- */
 
+    const CONTRACT_ADDRESS = "0x7f2643BCE8e15Fad0178030aFB14485023E40e19";
+    const CHAIN_ID_HEX = "0xaa36a7"; // Sepolia
+
+    const ORIGIN = window.location.origin;
+    const HAS_LOCAL_PROXY =
+      ORIGIN.includes("localhost:3443") || ORIGIN.includes("127.0.0.1:3443");
+    const RELAYER_URL = HAS_LOCAL_PROXY ? `${ORIGIN}/relayer` : "https://relayer.testnet.zama.org";
+    const GATEWAY_URL = HAS_LOCAL_PROXY ? `${ORIGIN}/gateway` : "https://gateway.testnet.zama.org";
+
+    const IS_HTTPS = location.protocol === "https:";
+
+    // ABI for EncryptedSlotMachine
     const ABI = [
-      { inputs:[], stateMutability:'view', type:'function', name:'owner', outputs:[{type:'address'}] },
-      { inputs:[{name:'planId',type:'uint256'}], stateMutability:'view', type:'function', name:'hasPolicy', outputs:[{type:'bool'}] },
-      { inputs:[{name:'planId',type:'uint256'},{name:'kycLevelExt',type:'bytes32'},{name:'tenureDaysExt',type:'bytes32'},{name:'volumeUsdExt',type:'bytes32'},{name:'proof',type:'bytes'}], name:'evaluateEligibilityEncrypted', outputs:[{type:'bytes32'}], stateMutability:'nonpayable', type:'function' },
-      { inputs:[{name:'planId',type:'uint256'},{name:'minKycLevelExt',type:'bytes32'},{name:'minTenureDaysExt',type:'bytes32'},{name:'minTradeVolumeUsdExt',type:'bytes32'},{name:'minPassRulesExt',type:'bytes32'},{name:'proof',type:'bytes'}], name:'setPolicyEncrypted', outputs:[], stateMutability:'nonpayable', type:'function' },
-      { inputs:[{name:'planId',type:'uint256'}], name:'getMyEligibilityHandle', outputs:[{type:'bytes32'}], stateMutability:'view', type:'function' },
-      { inputs:[{name:'planId',type:'uint256'}], name:'makeMyEligibilityPublic', outputs:[], stateMutability:'nonpayable', type:'function' }
+      { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+      { type: "function", name: "transferOwnership", stateMutability: "nonpayable", inputs: [{ name: "newOwner", type: "address" }], outputs: [] },
+
+      { type: "function", name: "ROLL_MODULUS", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
+      { type: "function", name: "smallWinLimit", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
+      { type: "function", name: "bigWinLimit", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
+      { type: "function", name: "jackpotLimit", stateMutability: "view", inputs: [], outputs: [{ type: "uint16" }] },
+
+      {
+        type: "function",
+        name: "setPayoutConfig",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "newSmallWinLimit", type: "uint16" },
+          { name: "newBigWinLimit", type: "uint16" },
+          { name: "newJackpotLimit", type: "uint16" }
+        ],
+        outputs: []
+      },
+
+      {
+        type: "function",
+        name: "spinEncrypted",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "encSeed", type: "bytes32" },
+          { name: "proof", type: "bytes" }
+        ],
+        outputs: []
+      },
+
+      {
+        type: "function",
+        name: "getMyLastSpinHandles",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [
+          { type: "bytes32" }, // seedHandle
+          { type: "bytes32" }, // rollHandle
+          { type: "bytes32" }, // prizeTierHandle
+          { type: "bytes32" }, // winFlagHandle
+          { type: "bool" },    // decided
+          { type: "uint64" }   // lastSpinAt
+        ]
+      },
+
+      {
+        type: "function",
+        name: "getPlayerWinHandlePublic",
+        stateMutability: "view",
+        inputs: [{ name: "player", type: "address" }],
+        outputs: [
+          { type: "bytes32" }, // winFlagHandle
+          { type: "bool" },    // decided
+          { type: "uint64" }   // lastSpinAt
+        ]
+      }
     ];
 
-    let provider=null, signer=null, contract=null, relayer=null;
-    let currentAccount=null, ownerAddr=null;
+    /* ---------- DOM ---------- */
 
-    const tag=(t,ok)=>`<span class="tag ${ok?'ok':'bad'}">${t}</span>`;
-    const setDecision=(txt,ok=null)=>{
-      if(ok===true) decisionBox.innerHTML=`Decision: ${tag('ELIGIBLE',true)} <span class="muted small">(${txt})</span>`;
-      else if(ok===false) decisionBox.innerHTML=`Decision: ${tag('NOT ELIGIBLE',false)} <span class="muted small">(${txt})</span>`;
-      else decisionBox.innerHTML='Decision: <span class="tag">n/a</span>';
+    const $ = (id) => document.getElementById(id);
+
+    const netLabelEl        = $("netLabel");
+    const accountLabelEl    = $("accountLabel");
+    const contractLabelEl   = $("contractLabel");
+    const connectBtn        = $("connectBtn");
+    const connectBtnLabelEl = $("connectBtnLabel");
+
+    const lampEl        = $("lamp");
+    const lampMainEl    = $("lampMain");
+    const lampSubEl     = $("lampSub");
+
+    const reel1El       = $("reel1");
+    const reel2El       = $("reel2");
+    const reel3El       = $("reel3");
+    const reel1SymEl    = $("reel1Symbol");
+    const reel2SymEl    = $("reel2Symbol");
+    const reel3SymEl    = $("reel3Symbol");
+
+    const spinBtn       = $("spinBtn");
+    const revealBtn     = $("revealBtn");
+    const spinStatusEl  = $("spinStatus");
+
+    const httpsBadgeEl  = $("httpsBadge");
+    const httpsNoteEl   = $("httpsNote");
+
+    const payoutMetaLabelEl = $("payoutMetaLabel");
+
+    const tierTextEl        = $("tierText");
+    const winTextEl         = $("winText");
+    const seedHandleTextEl  = $("seedHandleText");
+    const rollHandleTextEl  = $("rollHandleText");
+    const tierHandleTextEl  = $("tierHandleText");
+    const winHandleTextEl   = $("winHandleText");
+    const decryptStatusEl   = $("decryptStatus");
+
+    const adminRoleBadgeEl    = $("adminRoleBadge");
+    const smallLimitInputEl   = $("smallLimitInput");
+    const bigLimitInputEl     = $("bigLimitInput");
+    const jackpotLimitInputEl = $("jackpotLimitInput");
+    const refreshConfigBtn    = $("refreshConfigBtn");
+    const setConfigBtn        = $("setConfigBtn");
+    const adminStatusEl       = $("adminStatus");
+
+    contractLabelEl.textContent = shortAddress(CONTRACT_ADDRESS);
+
+    /* ---------- STATE ---------- */
+
+    const state = {
+      provider: null,
+      signer: null,
+      contract: null,
+      relayer: null,
+      account: null,
+      owner: null,
+      isSpinning: false,
+      lastTier: null,
+      lastWin: null
     };
-    const short=(a)=>a?a.slice(0,6)+'…'+a.slice(-4):'—';
 
-    async function ensureSepolia(){
-      const id = await window.ethereum.request({ method:'eth_chainId' });
-      netPill.textContent = 'Network: ' + (id||'—');
-      if(id?.toLowerCase()!==CHAIN_ID_HEX){
-        try{ await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: CHAIN_ID_HEX }] }); }catch(e){}
-      }
-      const now = await window.ethereum.request({ method:'eth_chainId' });
-      netPill.textContent = 'Network: ' + (now||'—');
+    const SLOT_SYMBOLS = ["🍒", "🍋", "🍀", "⭐", "💎", "7️⃣", "🍊", "🔔"];
+
+    /* ---------- LOGGING HELPERS (BigInt-safe) ---------- */
+
+    const safeStringify = (obj) =>
+      JSON.stringify(obj, (k, v) => (typeof v === "bigint" ? v.toString() + "n" : v), 2);
+
+    function appendLog(...parts) {
+      const msg = parts.map(x =>
+        typeof x === "string" ? x : (() => { try { return safeStringify(x); } catch { return String(x); } })()
+      ).join(" ");
+      console.log("[log]", ...parts);
     }
 
-    async function connect(){
-      if(!window.ethereum?.request){ alert('Install MetaMask'); return; }
-      await window.ethereum.request({ method:'eth_requestAccounts' });
-      await ensureSepolia();
-
-      provider = new BrowserProvider(window.ethereum);
-      signer = await provider.getSigner();
-      currentAccount = await signer.getAddress();
-      accEl.textContent = short(currentAccount);
-
-      contract = new Contract(CONTRACT_ADDRESS, ABI, signer);
-      caddrEl.textContent = CONTRACT_ADDRESS;
-
-      try{ ownerAddr = await contract.owner(); cownerEl.textContent = short(ownerAddr); }
-      catch{ ownerAddr = null; cownerEl.textContent = '—'; }
-      isOwnerPill.textContent = 'owner: ' + (ownerAddr && currentAccount && ownerAddr.toLowerCase()===currentAccount.toLowerCase() ? 'yes' : 'no');
-
-      relayer = await createInstance({ ...SepoliaConfig, relayerUrl: RELAYER_URL, gatewayUrl: GATEWAY_URL, network: window.ethereum, debug: true });
-      relayerStateEl.textContent = 'ready' + (IS_HTTPS ? '' : ' (limited)') + (HAS_LOCAL_PROXY ? ' (proxy)' : '');
-      btnConnect.textContent = 'Disconnect';
+    function normalizeDecryptedValue(v) {
+      if (v == null) return null;
+      if (typeof v === "boolean") return v ? 1n : 0n;
+      if (typeof v === "bigint" || typeof v === "number") return BigInt(v);
+      if (typeof v === "string") return BigInt(v);
+      return BigInt(v.toString());
     }
 
-    function disconnect(){
-      provider=signer=contract=relayer=null; currentAccount=null;
-      accEl.textContent='—'; btnConnect.textContent='Connect'; relayerStateEl.textContent='not ready';
-      setDecision(''); lastHandleEl.textContent='—'; handleOut.value='';
+    function shortAddress(addr) {
+      if (!addr) return "—";
+      return addr.slice(0, 6) + "…" + addr.slice(-4);
     }
 
-    btnConnect.addEventListener('click', async()=>{ if(signer) disconnect(); else await connect(); });
-    btnCopy.addEventListener('click', async()=>{ if(!handleOut.value) return; await navigator.clipboard.writeText(handleOut.value); btnCopy.textContent='Copied'; setTimeout(()=>btnCopy.textContent='Copy',900); });
-
-    // ===== Helpers for decrypt =====
-    function normalizePublicDecryptResult(out, handleHex){
-      if(Array.isArray(out)){
-        const first = out[0];
-        return typeof first === 'string' ? first : (first?.value ?? null);
+    function normalizeChainId(id) {
+      if (!id) return "";
+      const s = String(id);
+      if (/^\d+$/.test(s)) {
+        return "0x" + BigInt(s).toString(16);
       }
-      if(out && typeof out==='object'){
-        const k = handleHex?.toLowerCase?.();
-        const v = out[handleHex] ?? out[k];
-        return (typeof v==='object' && v!==null && 'value' in v) ? v.value : v;
-      }
-      return null;
+      return s.toLowerCase();
     }
 
-    async function smartDecrypt(handleHex, mode='auto'){
-      if(!relayer || !contract) throw new Error('Connect wallet first');
-      const pair = { handle: String(handleHex), contractAddress: CONTRACT_ADDRESS };
+    async function ensureSepolia() {
+      if (!window.ethereum?.request) return false;
+      let cur = normalizeChainId(
+        await window.ethereum.request({ method: "eth_chainId" }).catch(() => null)
+      );
+      netLabelEl.textContent = cur || "unknown";
+      if (cur === CHAIN_ID_HEX) return true;
 
-      // 1) public (pairs)
-      if(mode==='auto' || mode==='public'){
-        try{
-          const out = await relayer.publicDecrypt([pair]);
-          const v = normalizePublicDecryptResult(out, String(handleHex));
-          if(v!=null) return BigInt(v)===1n;
-        }catch(e){ if(mode==='public') throw e; }
-
-        // 2) public (handles only)
-        try{
-          const out2 = await relayer.publicDecrypt([String(handleHex)]);
-          const v2 = normalizePublicDecryptResult(out2, String(handleHex));
-          if(v2!=null) return BigInt(v2)===1n;
-        }catch(e){ if(mode==='public') throw e; }
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: CHAIN_ID_HEX }]
+        });
+      } catch (e) {
+        if (e && e.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: CHAIN_ID_HEX,
+                chainName: "Sepolia",
+                nativeCurrency: { name: "Sepolia ETH", symbol: "SEP", decimals: 18 },
+                rpcUrls: ["https://rpc.sepolia.org"],
+                blockExplorerUrls: ["https://sepolia.etherscan.io"]
+              }
+            ]
+          });
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: CHAIN_ID_HEX }]
+          });
+        } else {
+          throw e;
+        }
       }
 
-      // 3) signed userDecrypt
-      if(mode!=='public'){
-        if(!IS_HTTPS) throw new Error('Open over HTTPS to use signed decrypt');
-        const kp = await generateKeypair();
-        const startTs = Math.floor(Date.now()/1000).toString();
-        const daysValid = '7';
-        const eip = relayer.createEIP712(kp.publicKey, [CONTRACT_ADDRESS], startTs, daysValid);
-        const sig = await signer.signTypedData(eip.domain, { UserDecryptRequestVerification: eip.types.UserDecryptRequestVerification }, eip.message);
-        const out = await relayer.userDecrypt(
-          [pair],
-          kp.privateKey, kp.publicKey, sig.replace('0x',''),
-          [CONTRACT_ADDRESS], await signer.getAddress(), startTs, daysValid
-        );
-        const picked = out[String(handleHex)] ?? out[String(handleHex).toLowerCase()];
-        if(picked==null) throw new Error('userDecrypt returned empty');
-        return BigInt(picked)===1n;
-      }
-
-      throw new Error('Decrypt failed');
+      const after = normalizeChainId(
+        await window.ethereum.request({ method: "eth_chainId" }).catch(() => null)
+      );
+      netLabelEl.textContent = after || "unknown";
+      return after === CHAIN_ID_HEX;
     }
 
-    // === Encrypt & Evaluate (NO auto-decrypt earlier; now we auto-try) ===
-    btnEval.addEventListener('click', async()=>{
-      try{
-        if(!signer || !contract || !relayer) throw new Error('Connect wallet first');
-        const planId = BigInt(planIdEl.value||'0');
-        const kyc = Number(kycEl.value||'0')|0;
-        const tenure = Number(tenureEl.value||'0')|0;
-        const volume = Number(volumeEl.value||'0')|0;
-        if(planId<=0n) throw new Error('Bad planId');
+    /* ---------- Relayer value picker helpers ---------- */
 
-        setDecision('encrypting …');
-        const enc = relayer.createEncryptedInput(CONTRACT_ADDRESS, currentAccount);
-        enc.add8(kyc); enc.add16(tenure); enc.add32(volume);
-        const { handles, inputProof } = await enc.encrypt();
+    function buildValuePicker(out, pairs) {
+      let map = {};
+      if (out && typeof out === "object") {
+        // common format: { clearValues: [...] }
+        if (Array.isArray(out.clearValues) && pairs && pairs.length) {
+          pairs.forEach((p, i) => {
+            const h = String(p.handle || p).toLowerCase();
+            map[h] = out.clearValues[i];
+          });
+        }
 
-        const tx = await contract.evaluateEligibilityEncrypted(planId, handles[0], handles[1], handles[2], inputProof);
-        await tx.wait();
+        // fallback: abiEncodedClearValues (packed 32-byte words)
+        if (!Object.keys(map).length && typeof out.abiEncodedClearValues === "string" && pairs && pairs.length) {
+          const raw = out.abiEncodedClearValues.startsWith("0x")
+            ? out.abiEncodedClearValues.slice(2)
+            : out.abiEncodedClearValues;
+          const vals = [];
+          for (let i = 0; i + 64 <= raw.length; i += 64) {
+            const chunk = "0x" + raw.slice(i, i + 64);
+            try {
+              vals.push(BigInt(chunk));
+            } catch {
+              vals.push(0n);
+            }
+          }
+          pairs.forEach((p, i) => {
+            const h = String(p.handle || p).toLowerCase();
+            map[h] = vals[i] ?? 0n;
+          });
+        }
 
-        const h = await contract.getMyEligibilityHandle(planId);
-        handleOut.value = h; lastHandleEl.textContent = h;
+        // last resort: treat object entries as map
+        if (!Object.keys(map).length) {
+          for (const [k, v] of Object.entries(out)) {
+            map[k.toLowerCase()] = v;
+          }
+        }
+      }
 
-        // AUTO decrypt cascade right after evaluation
-        try{
-          const ok = await smartDecrypt(h, 'auto');
-          setDecision('auto decrypt', ok);
-        }catch(e){ setDecision('stored handle — use buttons to decrypt'); }
-      }catch(e){ console.error(e); alert(e?.message||'Failed'); setDecision('error'); }
+      return (handle) => {
+        if (!handle) return null;
+        const k = String(handle).toLowerCase();
+        const v = map[k];
+        if (v === undefined) return null;
+        return normalizeDecryptedValue(v);
+      };
+    }
+
+    async function userDecryptMany(relayer, signer, pairs) {
+      const kp = await generateKeypair();
+      const startTs = Math.floor(Date.now() / 1000).toString();
+      const daysValid = "7";
+
+      const eip = relayer.createEIP712(kp.publicKey, [CONTRACT_ADDRESS], startTs, daysValid);
+      const sig = await signer.signTypedData(
+        eip.domain,
+        { UserDecryptRequestVerification: eip.types.UserDecryptRequestVerification },
+        eip.message
+      );
+
+      const userAddr = await signer.getAddress();
+      const out = await relayer.userDecrypt(
+        pairs,
+        kp.privateKey,
+        kp.publicKey,
+        sig.replace(/^0x/, ""),
+        [CONTRACT_ADDRESS],
+        userAddr,
+        startTs,
+        daysValid
+      );
+      appendLog("userDecrypt result:", out);
+      return { out, pairs };
+    }
+
+    /* ---------- UI helpers ---------- */
+
+    function updateHttpsUI() {
+      if (IS_HTTPS) {
+        httpsBadgeEl.textContent = "decrypt: HTTPS ✓";
+        httpsBadgeEl.classList.remove("warn", "err");
+        httpsBadgeEl.classList.add("ok");
+        httpsNoteEl.innerHTML =
+          'Running on <span class="https-good">HTTPS</span> — userDecrypt workers should be fully supported.';
+      } else {
+        httpsBadgeEl.textContent = "decrypt: open via HTTPS";
+        httpsBadgeEl.classList.remove("ok");
+        httpsBadgeEl.classList.add("warn");
+        httpsNoteEl.innerHTML =
+          'This origin is not HTTPS. <span class="https-bad">userDecrypt may be restricted</span> by your browser.';
+      }
+    }
+
+    function setLampState(mode, textMain, textSub) {
+      lampEl.classList.remove("win", "lose", "idle");
+      lampEl.classList.add(mode);
+      lampMainEl.textContent = textMain;
+      if (textSub !== undefined) lampSubEl.textContent = textSub;
+    }
+
+    function setReelsSpinning(spinning) {
+      [reel1El, reel2El, reel3El].forEach((r) => {
+        if (spinning) r.classList.add("spinning");
+        else r.classList.remove("spinning");
+      });
+    }
+
+    function randomSymbol() {
+      const i = Math.floor(Math.random() * SLOT_SYMBOLS.length);
+      return SLOT_SYMBOLS[i];
+    }
+
+    function applySymbolsForTier(tier) {
+      // purely visual — not a cryptographic guarantee, just a fun pattern
+      if (tier === 3n) {
+        reel1SymEl.textContent = "7️⃣";
+        reel2SymEl.textContent = "7️⃣";
+        reel3SymEl.textContent = "7️⃣";
+      } else if (tier === 2n) {
+        const s = "💎";
+        reel1SymEl.textContent = s;
+        reel2SymEl.textContent = s;
+        reel3SymEl.textContent = randomSymbol();
+      } else if (tier === 1n) {
+        const s = "🍒";
+        reel1SymEl.textContent = s;
+        reel2SymEl.textContent = randomSymbol();
+        reel3SymEl.textContent = s;
+      } else {
+        reel1SymEl.textContent = randomSymbol();
+        reel2SymEl.textContent = randomSymbol();
+        reel3SymEl.textContent = randomSymbol();
+      }
+    }
+
+    function clearResultUI() {
+      tierTextEl.textContent = "—";
+      tierTextEl.classList.add("muted");
+      winTextEl.textContent = "—";
+      winTextEl.classList.add("muted");
+      seedHandleTextEl.textContent = "seed: —";
+      rollHandleTextEl.textContent = "roll: —";
+      tierHandleTextEl.textContent = "tier: —";
+      winHandleTextEl.textContent = "win flag: —";
+      decryptStatusEl.textContent = "";
+      setLampState("idle", "Waiting for your spin…", "Encrypt seed → send tx → decrypt result");
+      setReelsSpinning(false);
+    }
+
+    function formatPayoutMeta(small, big, jackpot, modulus) {
+      return `roll < ${jackpot} → tier 3 · roll < ${big} → tier 2 · roll < ${small} → tier 1 · / ${modulus}`;
+    }
+
+    /* ---------- WALLET CONNECTION ---------- */
+
+    connectBtn.addEventListener("click", async () => {
+      if (state.signer) {
+        await disconnectWallet();
+      } else {
+        await connectWallet();
+      }
     });
 
-    // Make public (on-chain)
-    btnMakePublic.addEventListener('click', async()=>{
-      try{
-        if(!signer || !contract) throw new Error('Connect wallet first');
-        const planId = BigInt(planIdEl.value||'0');
-        const tx = await contract.makeMyEligibilityPublic(planId);
-        await tx.wait();
-        const h = await contract.getMyEligibilityHandle(planId);
-        handleOut.value = h; lastHandleEl.textContent = h;
-        setDecision('made public — now try Decrypt (public)');
-      }catch(e){ console.error(e); alert(e?.message||'Failed'); }
-    });
+    async function connectWallet() {
+      try {
+        if (!window.ethereum?.request) {
+          alert("Please install MetaMask or another EIP-1193 wallet.");
+          return;
+        }
 
-    // === Replaced handlers: use smartDecrypt ===
-    btnPublicDecrypt.addEventListener('click', async()=>{
-      try{
-        const planId = BigInt(planIdEl.value||'0');
-        const h = handleOut.value || await contract.getMyEligibilityHandle(planId);
-        if(!h || String(h)==='0x'+'0'.repeat(64)) throw new Error('No decision handle. Evaluate first.');
-        const ok = await smartDecrypt(String(h), 'public');
-        setDecision('public decrypt', ok);
-      }catch(e){ console.error('public decrypt failed:', e); alert(e?.message||'Public decrypt failed'); setDecision('error'); }
-    });
+        await ensureSepolia();
 
-    btnUserDecrypt.addEventListener('click', async()=>{
-      try{
-        const planId = BigInt(planIdEl.value||'0');
-        const h = handleOut.value || await contract.getMyEligibilityHandle(planId);
-        if(!h || String(h)==='0x'+'0'.repeat(64)) throw new Error('No decision handle');
-        const ok = await smartDecrypt(String(h), 'signed');
-        setDecision('signed decrypt', ok);
-      }catch(e){ console.error(e); alert(e?.message||'Failed'); }
-    });
+        const provider = new BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = await provider.getSigner();
+        const account = await signer.getAddress();
+        const contract = new Contract(CONTRACT_ADDRESS, ABI, signer);
 
-    // === Admin: set encrypted policy ===
-    btnSetPolicy.addEventListener('click', async()=>{
-      try{
-        if(!signer || !contract || !relayer) throw new Error('Connect wallet first');
-        if(!ownerAddr || ownerAddr.toLowerCase()!== (await signer.getAddress()).toLowerCase()) throw new Error('Owner only');
-        const planId = BigInt(pPlanEl.value||'0');
-        const a=Number(pKycEl.value||'0')|0, b=Number(pTenureEl.value||'0')|0, c=Number(pVolEl.value||'0')|0, d=Number(pPassEl.value||'0')|0;
-        if(planId<=0n) throw new Error('Bad planId');
+        appendLog("Creating Relayer instance…");
+        const relayer = await createInstance({
+          ...SepoliaConfig,
+          relayerUrl: RELAYER_URL,
+          gatewayUrl: GATEWAY_URL,
+          network: window.ethereum,
+          debug: true
+        });
 
-        const buf = relayer.createEncryptedInput(CONTRACT_ADDRESS, await signer.getAddress());
-        buf.add8(a); buf.add16(b); buf.add32(c); buf.add8(d);
+        state.provider = provider;
+        state.signer = signer;
+        state.contract = contract;
+        state.relayer = relayer;
+        state.account = account;
+
+        connectBtnLabelEl.textContent = "Disconnect";
+        accountLabelEl.textContent = shortAddress(account);
+        accountLabelEl.classList.remove("muted");
+        netLabelEl.textContent = CHAIN_ID_HEX;
+
+        spinBtn.disabled = false;
+        revealBtn.disabled = false;
+
+        appendLog("Relayer ready:", { relayerUrl: RELAYER_URL, gatewayUrl: GATEWAY_URL });
+        updateHttpsUI();
+
+        // Fetch owner for admin panel
+        try {
+          const owner = await contract.owner();
+          state.owner = owner;
+          if (owner.toLowerCase() === account.toLowerCase()) {
+            adminRoleBadgeEl.textContent = "role: owner";
+            adminRoleBadgeEl.classList.add("ok");
+          } else {
+            adminRoleBadgeEl.textContent = "role: viewer";
+          }
+        } catch (e) {
+          appendLog("owner() read failed:", e?.message || e);
+          adminRoleBadgeEl.textContent = "role: unknown";
+        }
+
+        await refreshPayoutConfig();
+        await refreshMySpinHandles();
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("Connect failed:", msg);
+        alert(msg);
+      }
+    }
+
+    async function disconnectWallet() {
+      state.provider = null;
+      state.signer = null;
+      state.contract = null;
+      state.relayer = null;
+      state.account = null;
+      state.owner = null;
+
+      connectBtnLabelEl.textContent = "Connect wallet";
+      accountLabelEl.textContent = "not connected";
+      accountLabelEl.classList.add("muted");
+      spinBtn.disabled = true;
+      revealBtn.disabled = true;
+      adminRoleBadgeEl.textContent = "role: unknown";
+
+      clearResultUI();
+      adminStatusEl.textContent = "";
+      payoutMetaLabelEl.textContent = "Payout curve: connect wallet";
+
+      appendLog("Disconnected");
+    }
+
+    /* ---------- SPIN LOGIC ---------- */
+
+    function randomSeed() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+
+  // Преобразуем number -> BigInt, считаем модуль в BigInt,
+  // потом обратно в обычный number
+  const raw = BigInt(buf[0]);
+  const mod = raw % 10000n;   // 0..9999
+  return Number(mod);
+}
+
+
+    spinBtn.addEventListener("click", async () => {
+      try {
+        if (!state.contract || !state.signer || !state.relayer || !state.account) {
+          throw new Error("Connect your wallet first.");
+        }
+        if (state.isSpinning) return;
+
+        state.isSpinning = true;
+        setReelsSpinning(true);
+        setLampState("idle", "Spinning…", "Encrypting seed and sending transaction");
+        spinStatusEl.textContent = "";
+
+        const seed = randomSeed();
+        appendLog("Using random seed:", seed);
+
+        const buf = state.relayer.createEncryptedInput(CONTRACT_ADDRESS, state.account);
+        buf.add16(seed);
+
         const { handles, inputProof } = await buf.encrypt();
+        appendLog("spinEncrypted handles:", handles);
 
-        const tx = await contract.setPolicyEncrypted(planId, handles[0], handles[1], handles[2], handles[3], inputProof);
-        await tx.wait(); alert('Policy set ✓');
-      }catch(e){ console.error(e); alert(e?.message||'Failed'); }
+        const tx = await state.contract.spinEncrypted(handles[0], inputProof);
+
+        spinStatusEl.textContent = "Transaction sent: " + tx.hash.slice(0, 10) + "…";
+        appendLog("spinEncrypted tx:", tx.hash);
+
+        await tx.wait();
+        spinStatusEl.textContent = "Spin confirmed ✓";
+
+        await refreshMySpinHandles();
+        await decryptLastSpin();
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("spinEncrypted error:", msg);
+        spinStatusEl.textContent = msg;
+        alert(msg);
+      } finally {
+        state.isSpinning = false;
+        setReelsSpinning(false);
+      }
     });
 
-    if(window.ethereum){
-      window.ethereum.on?.('accountsChanged', ()=>location.reload());
-      window.ethereum.on?.('chainChanged', ()=>location.reload());
-      try{ const a = await window.ethereum.request({ method:'eth_accounts' }); if(a && a.length) await connect(); }catch{}
+    revealBtn.addEventListener("click", async () => {
+      try {
+        if (!state.contract || !state.relayer || !state.signer || !state.account) {
+          throw new Error("Connect your wallet first.");
+        }
+        await refreshMySpinHandles();
+        await decryptLastSpin();
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("reveal error:", msg);
+        decryptStatusEl.textContent = msg;
+        alert(msg);
+      }
+    });
+
+    async function refreshMySpinHandles() {
+      if (!state.contract) return;
+      try {
+        const r = await state.contract.getMyLastSpinHandles();
+        const seedH = r?.[0];
+        const rollH = r?.[1];
+        const tierH = r?.[2];
+        const winH  = r?.[3];
+        const decided = !!r?.[4];
+
+        if (!decided || (!seedH && !rollH && !tierH && !winH)) {
+          clearResultUI();
+          decryptStatusEl.textContent = "No spin recorded yet. Hit “Spin with encrypted seed”.";
+          return;
+        }
+
+        seedHandleTextEl.textContent = "seed: " + String(seedH);
+        rollHandleTextEl.textContent = "roll: " + String(rollH);
+        tierHandleTextEl.textContent = "tier: " + String(tierH);
+        winHandleTextEl.textContent  = "win flag: " + String(winH);
+      } catch (e) {
+        appendLog("getMyLastSpinHandles error:", e?.message || e);
+      }
+    }
+
+    async function decryptLastSpin() {
+      try {
+        if (!state.contract || !state.relayer || !state.signer || !state.account) {
+          throw new Error("Connect your wallet first.");
+        }
+        if (!IS_HTTPS) {
+          appendLog("userDecrypt requested on non-HTTPS origin.");
+        }
+
+        const r = await state.contract.getMyLastSpinHandles();
+        const seedH = r?.[0];
+        const rollH = r?.[1];
+        const tierH = r?.[2];
+        const winH  = r?.[3];
+        const decided = !!r?.[4];
+
+        if (!decided || !tierH || !winH) {
+          clearResultUI();
+          decryptStatusEl.textContent = "No spin recorded yet. Spin first.";
+          return;
+        }
+
+        decryptStatusEl.textContent = "Decrypting encrypted tier & win flag via Relayer…";
+
+        const pairs = [
+          { handle: seedH, contractAddress: CONTRACT_ADDRESS },
+          { handle: rollH, contractAddress: CONTRACT_ADDRESS },
+          { handle: tierH, contractAddress: CONTRACT_ADDRESS },
+          { handle: winH,  contractAddress: CONTRACT_ADDRESS }
+        ];
+
+        const { out, pairs: used } = await userDecryptMany(state.relayer, state.signer, pairs);
+        const pick = buildValuePicker(out, used);
+
+        const eTier = pick(tierH); // bigint or null
+        const eWin  = pick(winH);
+
+        state.lastTier = eTier;
+        state.lastWin  = eWin;
+
+        const winFlag = (eWin ?? 0n) !== 0n;
+        const tier = eTier ?? 0n;
+
+        // update reels & lamp visually
+        applySymbolsForTier(tier);
+
+        if (winFlag) {
+          setLampState("win", "Win! 🎉", `Prize tier ${tier.toString()} · decrypted locally`);
+          winTextEl.textContent = `WIN (flag = ${eWin.toString()})`;
+        } else {
+          setLampState("lose", "No win this time", "Spin again — the contract only sees ciphertexts anyway");
+          winTextEl.textContent = `No win (flag = ${eWin?.toString?.() ?? "0"})`;
+        }
+        winTextEl.classList.remove("muted");
+
+        const tierLabel =
+          tier === 3n ? "3 · JACKPOT" :
+          tier === 2n ? "2 · big win" :
+          tier === 1n ? "1 · small win" :
+          "0 · no win";
+        tierTextEl.textContent = tierLabel;
+        tierTextEl.classList.remove("muted");
+
+        decryptStatusEl.textContent =
+          "Decryption successful. The clear prize tier and win flag never go back on-chain.";
+
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("decryptLastSpin error:", msg);
+        decryptStatusEl.textContent = msg;
+        alert(msg);
+      }
+    }
+
+    /* ---------- ADMIN: PAYOUT CONFIG ---------- */
+
+    refreshConfigBtn.addEventListener("click", async () => {
+      await refreshPayoutConfig();
+    });
+
+    async function refreshPayoutConfig() {
+      if (!state.contract) {
+        payoutMetaLabelEl.textContent = "Payout curve: connect wallet";
+        return;
+      }
+      try {
+        const modulus = await state.contract.ROLL_MODULUS();
+        const small = Number(await state.contract.smallWinLimit());
+        const big = Number(await state.contract.bigWinLimit());
+        const jackpot = Number(await state.contract.jackpotLimit());
+
+        smallLimitInputEl.value   = small || "";
+        bigLimitInputEl.value     = big || "";
+        jackpotLimitInputEl.value = jackpot || "";
+
+        payoutMetaLabelEl.textContent = formatPayoutMeta(small, big, jackpot, modulus);
+        adminStatusEl.textContent = "";
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("read payout config error:", msg);
+        payoutMetaLabelEl.textContent = "Payout curve: unable to read";
+        adminStatusEl.textContent = msg;
+      }
+    }
+
+    setConfigBtn.addEventListener("click", async () => {
+      try {
+        if (!state.contract || !state.signer || !state.account) {
+          throw new Error("Connect your wallet first.");
+        }
+        if (!state.owner || state.owner.toLowerCase() !== state.account.toLowerCase()) {
+          throw new Error("Only contract owner can update payout config.");
+        }
+
+        const small = Number(smallLimitInputEl.value || "0");
+        const big = Number(bigLimitInputEl.value || "0");
+        const jackpot = Number(jackpotLimitInputEl.value || "0");
+
+        if (!Number.isInteger(small) || small <= 0 || small > 10000) {
+          throw new Error("Small win limit must be in (0, 10000].");
+        }
+        if (!Number.isInteger(big) || big <= 0 || big >= small) {
+          throw new Error("Big win limit must be > 0 and < small win limit.");
+        }
+        if (!Number.isInteger(jackpot) || jackpot <= 0 || jackpot >= big) {
+          throw new Error("Jackpot limit must be > 0 and < big win limit.");
+        }
+
+        adminStatusEl.textContent = "Sending payout config transaction…";
+
+        const tx = await state.contract.setPayoutConfig(
+          BigInt(small),
+          BigInt(big),
+          BigInt(jackpot)
+        );
+
+        adminStatusEl.textContent = "Tx sent: " + tx.hash.slice(0, 10) + "…";
+        appendLog("setPayoutConfig tx:", tx.hash);
+
+        await tx.wait();
+        adminStatusEl.textContent = "Payout config updated ✓";
+
+        await refreshPayoutConfig();
+      } catch (e) {
+        const msg = e?.reason || e?.shortMessage || e?.message || String(e);
+        appendLog("setPayoutConfig error:", msg);
+        adminStatusEl.textContent = msg;
+        alert(msg);
+      }
+    });
+
+    /* ---------- INIT ---------- */
+
+    updateHttpsUI();
+    clearResultUI();
+    spinBtn.disabled = true;
+    revealBtn.disabled = true;
+
+    // auto-connect if already authorized
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (accounts && accounts.length) {
+          appendLog("Wallet already authorized, auto-connecting…");
+          await connectWallet();
+        }
+      } catch (e) {
+        appendLog("Auto-connect failed:", e?.message || e);
+      }
+
+      window.ethereum.on?.("accountsChanged", () => {
+        location.reload();
+      });
+      window.ethereum.on?.("chainChanged", () => {
+        location.reload();
+      });
     }
   </script>
 </body>

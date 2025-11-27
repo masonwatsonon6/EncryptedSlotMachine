@@ -1,352 +1,464 @@
-# Encrypted Player Registry · Zama FHEVM
+# Encrypted Slot Machine 🎰
 
-A minimal demo dApp that showcases how to build a privacy‑preserving player registry on top of the **Zama FHEVM**.
+**Encrypted Slot Machine** is a Zama FHEVM demo dApp that turns a classic slot machine into a fully private on-chain game.
 
-Each player registers with:
+The user sends an **encrypted random seed**, the contract evaluates the spin under **Fully Homomorphic Encryption (FHE)** and stores only:
 
-* a **public name** stored in plaintext (for leaderboards / UX), and
-* a **fully homomorphic encrypted age** stored as an `euint8` in the smart contract.
+* encrypted seed
+* encrypted normalized roll
+* encrypted prize tier `0..3`
+* encrypted win flag
 
-The age is never revealed on-chain in clear form. The player can decrypt their own age off‑chain using the **Relayer SDK 0.2.0** and an EIP‑712 signature.
+Only the player can decrypt the result via the **Relayer SDK `userDecrypt` flow**.
+The contract never sees raw numbers — just ciphertexts and clear *payout thresholds*.
 
 ---
 
-## Tech stack
+## Table of contents
 
-* **Smart contract**: Solidity `^0.8.24`
+* [Concept](#concept)
+* [How winnings are calculated](#how-winnings-are-calculated)
+* [Privacy & trust model](#privacy--trust-model)
+* [User interface & flows](#user-interface--flows)
 
-  * `@fhevm/solidity` (Zama FHE library)
-  * `SepoliaConfig` from Zama FHEVM config
-* **Frontend**: single‑page HTML app
+  * [1. Spin the encrypted reels](#1-spin-the-encrypted-reels)
+  * [2. Decrypt your outcome](#2-decrypt-your-outcome)
+  * [3. Admin · Payout curve](#3-admin--payout-curve)
+* [Smart contract](#smart-contract)
+* [Frontend](#frontend)
+* [Project structure](#project-structure)
+* [Local development](#local-development)
+* [Deployment](#deployment)
+* [Notes & limitations](#notes--limitations)
+* [License](#license)
 
-  * `@zama-fhe/relayer-sdk` **0.2.0** (browser build)
-  * `ethers` **v6** (ESM, `BrowserProvider`, `Contract`)
-* **Network**: Sepolia FHEVM (testnet)
-* **Tooling**: Hardhat + hardhat‑deploy (backend), static web server (frontend)
+---
 
-Frontend entry point lives at:
+## Concept
+
+Traditional on-chain games expose all internal state: seed, rolls, payout rules and outcomes are public in the mempool and on the chain.
+
+**Encrypted Slot Machine** keeps the *entire spin* private:
+
+* The **seed** comes from the user, encrypted client-side with the Relayer SDK.
+* The **roll** and **prize tier** are computed directly on ciphertexts inside a Zama **FHEVM** contract.
+* The **win/lose flag** and the prize tier are only decrypted **locally** in the browser – via a signed `userDecrypt` request.
+
+The chain only sees:
+
+* ciphertext handles (`bytes32`)
+* clear payout thresholds (small win / big win / jackpot)
+
+This makes it a good **educational example** of FHEVM for game mechanics.
+
+---
+
+## How winnings are calculated
+
+The contract implements the following model:
+
+* A fixed **roll modulus**:
+
+  ```solidity
+  uint16 public constant ROLL_MODULUS = 10000;
+  ```
+
+* Three clear threshold parameters (owner configurable):
+
+  ```solidity
+  uint16 public smallWinLimit;
+  uint16 public bigWinLimit;
+  uint16 public jackpotLimit;
+  ```
+
+  With the invariant:
+
+  ```text
+  0 < jackpotLimit < bigWinLimit < smallWinLimit <= ROLL_MODULUS
+  ```
+
+* The frontend generates a random `seed` in `[0, 9999]`, then encrypts it as `euint16`.
+
+Inside the contract (`spinEncrypted`):
+
+1. The encrypted seed is ingested:
+
+   ```solidity
+   euint16 eSeed = FHE.fromExternal(encSeed, proof);
+   ```
+
+2. The seed is treated as the **roll** (frontend normalizes it):
+
+   ```solidity
+   euint16 eRoll = eSeed;
+   ```
+
+3. The prize tier is computed **under FHE** using `FHE.select` and encrypted comparisons:
+
+   ```solidity
+   // Start with 0 (no win)
+   euint16 eZero  = FHE.asEuint16(0);
+   euint16 ePrize = eZero;
+
+   // roll < smallWinLimit  → at least tier 1
+   ePrize = FHE.select(
+     FHE.lt(eRoll, FHE.asEuint16(smallWinLimit)),
+     FHE.asEuint16(1),
+     ePrize
+   );
+
+   // roll < bigWinLimit    → upgrade to tier 2
+   ePrize = FHE.select(
+     FHE.lt(eRoll, FHE.asEuint16(bigWinLimit)),
+     FHE.asEuint16(2),
+     ePrize
+   );
+
+   // roll < jackpotLimit   → upgrade to tier 3 (jackpot)
+   ePrize = FHE.select(
+     FHE.lt(eRoll, FHE.asEuint16(jackpotLimit)),
+     FHE.asEuint16(3),
+     ePrize
+   );
+   ```
+
+4. The win flag is computed as `tier > 0` under FHE:
+
+   ```solidity
+   ebool eWin = FHE.gt(ePrize, eZero);
+   ```
+
+5. The contract stores:
+
+   ```solidity
+   struct SpinOutcome {
+     euint16 eSeed;       // encrypted seed
+     euint16 eRoll;       // encrypted roll (same as seed)
+     euint16 ePrizeTier;  // encrypted tier 0..3
+     ebool   eWin;        // encrypted win flag
+     bool    decided;
+     uint64  lastSpinAt;
+   }
+   ```
+
+Prize tiers:
+
+* `0` – no win
+* `1` – small win
+* `2` – big win
+* `3` – jackpot
+
+The *probabilities* are controlled by the three thresholds.
+For example, with default settings:
 
 ```text
-frontend/public/index.html
+jackpotLimit = 50
+bigWinLimit  = 250
+smallWinLimit = 1000
+ROLL_MODULUS = 10000
+
+roll < 50      → tier 3 (≈ 0.5%)
+roll < 250     → tier 2 (≈ 2.5%)
+roll < 1000    → tier 1 (≈ 10%)
+else           → tier 0
 ```
 
 ---
 
-## Main idea
+## Privacy & trust model
 
-The dApp demonstrates a simple pattern for Zama FHEVM:
+This dApp focuses on **privacy**, not on provably fair randomness:
 
-1. The user encrypts sensitive data (age) **in the browser** using the Relayer SDK.
-2. The encrypted value is sent to the smart contract as an `externalEuint8` handle + `proof`.
-3. The contract converts this into an `euint8` and stores it in state.
-4. The user can later:
+* The **payout curve** (thresholds) is **public**.
+* The **seed is chosen by the player**, not by the house.
+* FHE ensures that **the contract never sees the clear seed, roll or prize tier**.
+* Only the player can decrypt their own result via `userDecrypt`.
 
-   * Inspect the **encrypted age handle** on-chain, and
-   * Use **userDecrypt** with an EIP‑712 signature to recover their age off‑chain.
-
-This pattern is reusable for any “profile with private fields” system.
+So it’s a good **FHEVM sandbox** and UX demo, not a production casino.
 
 ---
 
-## Smart contract overview
+## User interface & flows
 
-Contract name: `EncryptedPlayerRegistry`
+The UI is a single-page HTML app with a neon “slot machine” layout.
 
-Key properties:
+### 1. Spin the encrypted reels
 
-* Uses only official Zama FHE Solidity library:
+Top block: **“1. Spin the encrypted reels”**
 
-  * `import { FHE, euint8, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";`
-* Extends `SepoliaConfig` for the FHEVM network configuration.
-* Encrypted fields are always stored as `euint8` and **never decrypted on-chain**.
-* Access control over ciphertexts is handled via:
+Elements:
 
-  * `FHE.allowThis(ciphertext)`
-  * `FHE.allow(ciphertext, user)`
-  * `FHE.makePubliclyDecryptable(ciphertext)` for opt‑in public auditability.
+* Neon header with machine name: `ZAMA · FHE SLOTS`.
+* Three animated reels with emojis (`🍒`, `💎`, `7️⃣`, …).
+* A status lamp showing:
 
-### Storage
+  * `Waiting for your spin…`
+  * `Spinning…`
+  * `Win!` / `No win this time` (after decryption).
 
-```solidity
-struct Player {
-    bool exists;   // registration flag
-    string name;   // public display name
-    euint8 age;    // encrypted age
-}
+Buttons:
 
-mapping(address => Player) private _players;
-address public owner;
+* **`SPIN WITH ENCRYPTED SEED`**
+
+  * Generates a random `seed ∈ [0, 9999]` in the browser.
+  * Encrypts it via Relayer SDK:
+
+    ```js
+    const buf = relayer.createEncryptedInput(CONTRACT_ADDRESS, account);
+    buf.add16(seed);
+    const { handles, inputProof } = await buf.encrypt();
+    ```
+  * Calls `spinEncrypted(handles[0], inputProof)` on the contract.
+* **`REVEAL LAST RESULT (DECRYPT)`**
+
+  * Re-reads the latest spin handles and runs `userDecrypt` again.
+
+The note below explains that the contract only sees **encrypted seed / roll / tier / win flag**.
+
+### 2. Decrypt your outcome
+
+Middle block: **“2. Your encrypted outcome”**
+
+Sections:
+
+* **Prize tier**
+
+  * Shows the decrypted tier (`0..3`) and a capsule legend:
+
+    * `0 · no win`
+    * `1 · small win`
+    * `2 · big win`
+    * `3 · jackpot`
+* **Encrypted win flag**
+
+  * Shows decrypted boolean (via `normalizeDecryptedValue(v) !== 0n`).
+  * HTTPS badge:
+
+    * `decrypt: HTTPS ✓` on secure origins
+    * `decrypt: open via HTTPS` on insecure origins
+
+Handles:
+
+* **Last spin handles**
+
+  * `seed: <bytes32>`
+  * `roll: <bytes32>`
+* **Prize / win handles**
+
+  * `tier: <bytes32>`
+  * `win flag: <bytes32>`
+
+Under the hood, decryption uses:
+
+```js
+const { out, pairs } = await userDecryptMany(relayer, signer, [
+  { handle: seedH, contractAddress: CONTRACT_ADDRESS },
+  { handle: rollH, contractAddress: CONTRACT_ADDRESS },
+  { handle: tierH, contractAddress: CONTRACT_ADDRESS },
+  { handle: winH,  contractAddress: CONTRACT_ADDRESS },
+]);
+
+const pick = buildValuePicker(out, pairs);
+const tier = pick(tierH);    // bigint
+const win  = pick(winH);     // bigint (0/1)
 ```
 
-* `name` is stored in the clear.
-* `age` is an encrypted `euint8`.
+The lamp + reels animation is updated based on the decrypted tier and win flag.
 
-### Public / player functions
+### 3. Admin · Payout curve
 
-* `registerEncrypted(string name, externalEuint8 ageExt, bytes proof)`
+Bottom block: **“3. Admin · Payout curve”**
 
-  * Encrypt age in the browser using the Relayer SDK.
-  * Call this function with the encrypted handle and proof.
-  * Contract:
+* Shows three numeric inputs:
 
-    * calls `FHE.fromExternal(ageExt, proof)` → `euint8` ciphertext;
-    * stores it in `_players[msg.sender].age`;
-    * uses `FHE.allowThis` and `FHE.allow(ciphertext, msg.sender)`.
+  * **Small win limit** (`smallWinLimit`)
+  * **Big win limit** (`bigWinLimit`)
+  * **Jackpot limit** (`jackpotLimit`)
+* Buttons:
 
-* `registerPlain(string name, uint8 agePlain)`
+  * `Refresh from contract`
+  * `Update payout config` (owner-only)
 
-  * Dev/demo helper.
-  * Converts plaintext `agePlain` into ciphertext using `FHE.asEuint8` on-chain.
+The currently connected wallet’s role is shown in a badge:
 
-* `updateName(string newName)`
+* `role: owner` — can call `setPayoutConfig`.
+* `role: viewer` — read-only.
 
-  * Updates only the public `name` field.
-
-* `updateAgeEncrypted(externalEuint8 newAgeExt, bytes proof)`
-
-  * Updates only the encrypted age.
-
-* `isRegistered(address player) -> bool`
-
-  * Returns whether a player has a profile.
-
-* `getPlayer(address player) -> (bool exists, string name, bytes32 ageHandle)`
-
-  * Returns profile metadata and the encrypted age handle (`bytes32`).
-  * `ageHandle` can be fed to public decryption or user decryption off-chain.
-
-* `getMyAgeHandle() -> bytes32`
-
-  * Convenience method to fetch the `bytes32` handle for `msg.sender`’s age.
-
-* `makeMyAgePublic()`
-
-  * Calls `FHE.makePubliclyDecryptable(_players[msg.sender].age)`.
-  * Allows anyone to call `publicDecrypt` on the ciphertext.
-
-### Owner/admin functions
-
-* `owner` / `transferOwnership(address newOwner)`
-
-  * Standard ownership pattern.
-
-* `makePlayerAgePublic(address player)`
-
-  * For audits / demos, owner can force a player’s age to be publicly decryptable.
-
-* `clearPlayer(address player)`
-
-  * Logically clears a player profile.
-  * Sets `exists = false`, wipes `name`, and replaces age with `FHE.asEuint8(0)`.
-  * Avoids using `delete` on `euint8` (not supported).
+The text explains how thresholds define the mapping from roll to prize tier.
 
 ---
 
-## Frontend overview
+## Smart contract
 
-The frontend is a single `index.html` with:
+File: **`contracts/EncryptedSlotMachine.sol`**
 
-* A **three‑column layout**:
+Key points:
 
-  * Player onboarding (name + encrypted age).
-  * “My profile” section (view profile, update name/age, decrypt age).
-  * Owner console (mark ages public / clear profiles).
-* A **dark neon UI** designed to be visually distinct from other demos.
-* Uses **Relayer SDK 0.2.0** and **ethers v6** via ESM CDNs.
+* Based on Zama’s FHEVM libraries:
 
-Key flows:
+  ```solidity
+  import {
+    FHE,
+    ebool,
+    euint16,
+    externalEuint16
+  } from "@fhevm/solidity/lib/FHE.sol";
 
-### 1. Connect wallet & Relayer
+  import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+  ```
 
-* Uses `BrowserProvider(window.ethereum)` from ethers v6.
-* Automatically switches to Sepolia (chain id `0xaa36a7`).
-* Initializes the Relayer with:
+* Avoids FHE operations in `view` functions – views only expose **handles** (`bytes32`), not clear values.
 
-```ts
-await initSDK();
-relayer = await createInstance({
-  ...SepoliaConfig,
-  relayerUrl: "https://relayer.testnet.zama.cloud",
-  network: window.ethereum,
-  debug: true,
-});
-```
+* Uses:
 
-### 2. Encrypted registration
+  * `FHE.fromExternal` for ingesting encrypted inputs.
+  * `FHE.allowThis` / `FHE.allow` for access control.
+  * `FHE.select`, `FHE.lt`, `FHE.gt` for encrypted comparisons.
 
-* User enters `name` + `age`.
-* Frontend calls:
+* Optional path to make win flags publicly decryptable (if you enable it in the contract):
 
-```ts
-const input = relayer.createEncryptedInput(CONTRACT_ADDRESS, user);
-input.add8(age);                      // age is uint8
-const { handles, inputProof } = await input.encrypt();
-
-await contract.registerEncrypted(name, handles[0], inputProof);
-```
-
-### 3. Decrypting age (userDecrypt)
-
-* Frontend calls `getMyAgeHandle()`.
-* Generates an ephemeral keypair with `generateKeypair()`.
-* Builds EIP‑712 data via `relayer.createEIP712(...)`.
-* Uses `signer.signTypedData(...)` (EIP‑712) and then:
-
-```ts
-const pairs = [{ handle, contractAddress: CONTRACT_ADDRESS }];
-const result = await relayer.userDecrypt(
-  pairs,
-  kp.privateKey,
-  kp.publicKey,
-  sig.replace("0x", ""),
-  [CONTRACT_ADDRESS],
-  user,
-  startTs,
-  daysValid,
-);
-```
-
-* Displays the decrypted age **only in the UI**, never sending it back on-chain.
+  * `getPlayerWinHandlePublic(address)` for public decryption with `publicDecrypt`.
 
 ---
 
-## Project layout
+## Frontend
 
-A minimal layout (simplified):
+File: **`frontend/encrypted-slot-machine.html`** (example name)
+
+Technologies:
+
+* **Ethers v6** from CDN.
+* **Zama Relayer SDK** from CDN:
+  `https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.js`
+* Plain TypeScript-style JS in `<script type="module">`.
+* No bundler required.
+
+Relayer usage:
+
+* `initSDK()` on load.
+* `createInstance({ ...SepoliaConfig, relayerUrl, gatewayUrl, network })`.
+* `createEncryptedInput(contract, user)` + `add16(seed)` + `encrypt()`.
+* `userDecrypt(...)` with EIP-712 signature:
+
+  * `generateKeypair()`
+  * `relayer.createEIP712(...)`
+  * `signer.signTypedData(...)`
+* Careful handling of `BigInt`:
+
+  ```js
+  const safeStringify = (obj) =>
+    JSON.stringify(obj, (k, v) => (typeof v === "bigint" ? v.toString() + "n" : v), 2);
+
+  function normalizeDecryptedValue(v) {
+    if (v == null) return null;
+    if (typeof v === "boolean") return v ? 1n : 0n;
+    if (typeof v === "bigint" || typeof v === "number") return BigInt(v);
+    if (typeof v === "string") return BigInt(v);
+    return BigInt(v.toString());
+  }
+  ```
+
+Network:
+
+* Ethereum **Sepolia** FHEVM testnet.
+* Contract address:
+  `0x7f2643BCE8e15Fad0178030aFB14485023E40e19`
+
+---
+
+## Project structure
+
+Example layout:
 
 ```text
 .
 ├── contracts/
-│   └── EncryptedPlayerRegistry.sol
-├── frontend/
-│   └── public/
-│       └── index.html   # the SPA described above
+│   └── EncryptedSlotMachine.sol      # FHEVM slot machine logic
 ├── deploy/
-│   └── universal-deploy.ts
-├── hardhat.config.ts
+│   └── deploy.ts                     # Hardhat deploy script
+├── frontend/
+│   └── encrypted-slot-machine.html   # Single-page UI (this repo)
+├── hardhat.config.ts                 # Hardhat + hardhat-deploy config
 ├── package.json
-└── README.md
+├── README.md
+└── tsconfig.json (optional)
 ```
+
+You can adapt the folder names to your own monorepo; the core pieces are:
+
+* FHEVM contract
+* Hardhat deployment
+* Static HTML frontend
 
 ---
 
-## Installation & setup
+## Local development
 
-### 1. Clone & install dependencies
+1. **Install dependencies**
 
-```bash
-git clone &lt;this-repo-url&gt;
-cd &lt;this-repo-folder&gt;
+   ```bash
+   npm install
+   ```
 
-# Install backend deps (Hardhat, hardhat-deploy, etc.)
-npm install
-```
+2. **Compile contracts**
 
-If the frontend uses its own `package.json` inside `frontend/`, also run:
+   ```bash
+   npx hardhat compile
+   ```
 
-```bash
-cd frontend
-npm install
-cd ..
-```
+3. **Deploy to Sepolia FHEVM**
 
-### 2. Environment variables (Hardhat)
+   Update your deploy script to use `EncryptedSlotMachine` and then:
 
-In the project root, create a `.env` file (or update an existing one):
+   ```bash
+   npx hardhat deploy --network sepolia
+   ```
 
-```bash
-SEPOLIA_RPC_URL=https://&lt;your-sepolia-rpc&gt;
-PRIVATE_KEY=0x&lt;your_deployer_private_key&gt;
+4. **Serve the frontend**
 
-# Optional for universal-deploy
-CONTRACT_NAME=EncryptedPlayerRegistry
-CONSTRUCTOR_ARGS='[]'
-```
+   Any static server works, for example:
 
-> **Note:** never commit real private keys to Git. Use environment variables or a secure secret manager.
+   ```bash
+   npx serve frontend
+   ```
 
-### 3. Compile & deploy the contract
+   For `userDecrypt` to work reliably, use **HTTPS** or `localhost` with a dev certificate.
 
-```bash
-npx hardhat clean
-npx hardhat compile
-npx hardhat deploy --network sepolia
-```
+5. **Open the UI**
 
-If you use the provided `universal-deploy.ts` script, it will pick up `CONTRACT_NAME` and `CONSTRUCTOR_ARGS` automatically.
-
-Make sure the deployed address matches the one used by the frontend (`CONTRACT_ADDRESS` constant in `index.html`).
+   Navigate to `https://localhost:PORT/encrypted-slot-machine.html`
+   Connect wallet → Spin → Decrypt.
 
 ---
 
-## Running the frontend
+## Deployment
 
-Since the frontend is a static HTML SPA using WASM and `Cross-Origin-Opener-Policy`, you should serve it via a local HTTP server (not via `file://`).
+On production:
 
-From the project root:
+* Host `encrypted-slot-machine.html` on an HTTPS domain.
+* Point the frontend config to:
 
-```bash
-cd frontend/public
-
-# Simple option: use serve (no config needed)
-npx serve .
-
-# or, if you prefer http-server
-# npx http-server .
-```
-
-Then open the printed URL in your browser (e.g. [http://localhost:3000](http://localhost:3000) or [http://127.0.0.1:8080](http://127.0.0.1:8080)).
-
-Requirements:
-
-* Browser with EIP‑1193 wallet (MetaMask, Rabby…) connected to **Sepolia**.
-* Zama FHEVM RPC configured in your wallet / Hardhat.
+  * `relayerUrl = "https://relayer.testnet.zama.org"`
+  * `gatewayUrl = "https://gateway.testnet.zama.org"`
+* Ensure the contract address matches your latest deployment.
 
 ---
 
-## How to use the dApp
+## Notes & limitations
 
-1. **Connect wallet**
+* This is a **demo** – not a real-money gambling product.
+* The slot machine is not “provably fair”:
 
-   * Click **“Connect wallet”** in the header.
-   * Approve network switch to Sepolia if prompted.
+  * The **player** chooses the seed.
+  * The **payout curve** is public and can be simulated off-chain.
+  * FHE is used to **hide the spin**, not to enforce randomness.
+* Security considerations:
 
-2. **Register as a player**
-
-   * In **“Player onboarding”** panel:
-
-     * Enter a public display name.
-     * Enter your age (0–255).
-     * Click **“Encrypt & register”**.
-   * Wait for the transaction to confirm.
-
-3. **Inspect your profile**
-
-   * In **“My profile”** panel, click **“Load my profile”**.
-   * You will see:
-
-     * Your name, and
-     * Your encrypted age handle (`bytes32`).
-
-4. **Decrypt your age**
-
-   * Click **“Private decrypt via Relayer”**.
-   * Sign the EIP‑712 message in your wallet.
-   * The decrypted age will appear as a pill in the UI, visible only in your browser.
-
-5. **Owner tools (optional)**
-
-   * If connected as `owner`:
-
-     * Use **“Make age public”** for a target address to enable public decryption.
-     * Use **“Clear profile”** to logically clear a user profile.
-
----
-
-
+  * Always audit contracts before using real value.
+  * Use HTTPS in production so that the Relayer workers run in a secure context.
 
 ---
 
 ## License
 
-MIT — feel free to fork, adapt and extend for your own Zama FHEVM demos.
+MIT
